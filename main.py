@@ -8,8 +8,9 @@ from bs4 import BeautifulSoup
 from requests.exceptions import ConnectionError, Timeout
 from selenium.webdriver import Firefox, FirefoxOptions
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+
+# from selenium.webdriver.support import expected_conditions as EC
+# from selenium.webdriver.support.ui import WebDriverWait
 
 from get_links import keywords_list
 
@@ -27,22 +28,46 @@ class Jobs_scrapper_crunshbase:
         structured_time = time.strftime("%H:%M:%S", gmt_format)
         return structured_time
 
-    def accept_cookies(self):
+    def accept_cookies_clicker(self):
+        # wait until popup loads
+        time.sleep(3)
+
+        # try to click directly if button is available
         try:
-            # Wait for the cookie pop-up to appear,
-            # then click the "Accept" button
-            wait = WebDriverWait(self.driver, 10)
-            accept_button = wait.until(
-                EC.element_to_be_clickable(
-                    (
-                        By.XPATH,
-                        "//button[text()='Accept']",
-                    )
-                )
-            )
-            accept_button.click()
+            self.driver.find_element(
+                By.XPATH, "//*[contains(text(), 'Accept')]"
+            ).click()
         except Exception:
-            pass
+            ...
+
+        time.sleep(1)
+        soup_obj = self.selenium_driver_obj_to_soup_obj()
+        # print(soup_obj)
+
+        def tag_name_to_text_getter(tag_names):
+            """
+            Helper function to get the texts
+            of the based on the given tags list
+            """
+            for tag_name in tag_names:
+                tags_list = soup_obj.find_all(tag_name)
+                buttons_text = [
+                    tag.text for tag in tags_list if "Accept" in tag.text
+                ]  # noqa
+                if buttons_text:
+                    button_text = buttons_text[0].replace("\n", "").strip()
+                    print("--" + button_text + "--")
+                    return button_text
+
+        button_tag_names = ["a", "button"]
+
+        button_text = tag_name_to_text_getter(button_tag_names)
+        if button_text:
+            self.driver.find_element(
+                By.XPATH, f"//*[contains(text(), '{button_text}')]"
+            ).click()
+
+            time.sleep(3)
 
     def selenium_driver_obj_to_soup_obj(self, do_clean=False):
         page_source = self.driver.page_source
@@ -52,9 +77,15 @@ class Jobs_scrapper_crunshbase:
         return soup_object
 
     def build_complete_link(self, link, scheme="http", domain="example.com"):
+        # Handle special cases like 'javascript:void(0)'
+        if "javascript:" in link:
+            return None
+
+        # Check if the scheme is present in the link
         if scheme not in link:
             domain += link
             return domain
+
         return link
 
     def configure_browser(self):
@@ -67,8 +98,8 @@ class Jobs_scrapper_crunshbase:
         # firefox_options.add_argument("--no-sandbox")
         firefox_options.add_argument("start-maximized")
         firefox_options.add_argument(
-            "--disable-blink-features=AutomationControlled"
-        )  # noqa
+            "--disable-blink-features=AutomationControlled"  # noqa
+        )
         firefox_options.add_argument("--disable-infobars")
 
         # Initialize Firefox driver
@@ -187,7 +218,11 @@ class Jobs_scrapper_crunshbase:
         for path in career_paths:
             url = urljoin(domain, path)
             try:
-                response = requests.get(url, headers=headers, timeout=10)
+                response = requests.get(
+                    url,
+                    headers=headers,
+                    timeout=10,
+                )
                 if response.status_code == 200:
                     return url
             except Exception as e:
@@ -225,7 +260,7 @@ class Jobs_scrapper_crunshbase:
     def open_url_in_driver(self, url):
         try:
             self.driver.get(url)
-        except:
+        except Exception:
             self.driver.refresh()
 
     def main(self):
@@ -268,14 +303,19 @@ class Jobs_scrapper_crunshbase:
                     )
 
                     all_jobs_links = self.get_all_job_links(soup_obj)
-                    print('All Jobs Links', all_jobs_links)
+                    print("All Jobs Links", all_jobs_links)
                     for link in all_jobs_links:
-                        print(link)
+                        link = self.build_complete_link(
+                            link["href"], scheme="http", domain=jobs_link
+                        )
+
                         self.open_url_in_driver(link)
 
                         soup_obj = self.selenium_driver_obj_to_soup_obj(
                             do_clean=True,
                         )
+
+                        jd, title = self.get_jd_and_title(soup_obj)
 
     def get_job_link_from_button(self, soup):
         links = soup.find_all("a")
