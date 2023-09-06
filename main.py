@@ -270,7 +270,7 @@ class Jobs_scrapper_crunshbase:
                     all_jobs_links = self.get_all_job_links(soup_obj)
                     print('All Jobs Links', all_jobs_links)
                     for link in all_jobs_links:
-                        print
+                        print(link)
                         self.open_url_in_driver(link)
 
                         soup_obj = self.selenium_driver_obj_to_soup_obj(
