@@ -1,4 +1,5 @@
 from bs4 import Tag
+from collections import Counter
 
 
 def get_tag_pattern(element):
@@ -26,7 +27,7 @@ def extract_content_from_tag(elements, tag_name):
     return content_list
 
 
-def find_div_structure(soup):
+def find_div_structure_bak(soup):
     def get_structure(element):
         # Recursively build the structure identifier for a div
         structure = f"<{element.name}>"
@@ -44,10 +45,25 @@ def find_div_structure(soup):
             div_structure_count[div_structure] += 1
         else:
             div_structure_count[div_structure] = 1
-    print("div structure count", div_structure_count)
     # Find the most repeated div structure
     most_repeated_div_structure = max(
         div_structure_count,
         key=div_structure_count.get,
     )
     return most_repeated_div_structure
+
+
+def find_div_structure(soup):
+    div_structure_count = Counter()
+
+    for div in soup.find_all("div"):
+        if div.find("a"):  # Check if the div contains an 'a' tag
+            div_structure = str([tag.name for tag in div.find_all()])
+            div_structure_count[div_structure] += 1
+    if div_structure_count:
+        most_repeated_div_structure = max(
+            div_structure_count, key=div_structure_count.get
+        )
+        return most_repeated_div_structure
+    else:
+        return None

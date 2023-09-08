@@ -1,4 +1,5 @@
 keywords_list = [
+    "Show me open roles",
     "See job openings",
     "Search Jobs",
     "Find Jobs",
@@ -36,7 +37,6 @@ keywords_list = [
     "Upload Resume",
     "Find Your Job",
     "Job Alerts",
-    "Get Started",
     "New Openings",
     "Get Hired",
     "Current Openings",
@@ -64,7 +64,7 @@ keywords_list = [
     "Find Positions",
     "View Jobs",
     "Ready to Apply",
-    "Let’s Go",
+    "Let's Go",
     "Apply Here",
     "Find a Job",
     "Seek Opportunities",
