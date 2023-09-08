@@ -10,7 +10,11 @@ from selenium.webdriver import Firefox, FirefoxOptions
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-
+from utils import (
+    find_all_pattern_matches,
+    extract_content_from_tag,
+    find_div_structure,
+)
 from get_links import keywords_list  # External file for keywords
 
 # Constants
@@ -279,6 +283,46 @@ class JobsScrapperCrunchbase:
         """Write DataFrame to CSV."""
         df.to_csv(self.input_csv_path, index=False)
 
+    def get_job_links_from_indexing_page(self, soup):
+        most_repeated_structure = find_div_structure(soup)
+        if most_repeated_structure:
+            print("Most Repeated <div> Structure:")
+            print(most_repeated_structure)
+
+            # Parse the most repeated div structure and extract the tags
+            most_repeated_soup = BeautifulSoup(
+                most_repeated_structure,
+                "html.parser",
+            )
+            # Initialize an empty list to store the tags in the desired order
+            tag_list = []
+
+            # Function to traverse the tree and
+            # extract tags in the desired order
+            def extract_tags(node):
+                if node.name:
+                    tag_list.append(node.name)
+                    for child in node.children:
+                        extract_tags(child)
+
+            # Start the traversal from the root of the parsed structure
+            for child in most_repeated_soup.children:
+                extract_tags(child)
+            # # Remove duplicate entries while preserving the order
+            # tag_list = list(dict.fromkeys(tag_list))​
+            # Now, tag_list contains the desired list of tags
+            print("List of Tags in Most Repeated Structure:")
+            print(tag_list)
+            target_pattern = tag_list
+            # Find all elements that match the target pattern
+            matching_elements = find_all_pattern_matches(soup, target_pattern)
+
+            if matching_elements:
+                # Extract and print the content from the
+                # 'a' tag within the matching elements
+                content_list = extract_content_from_tag(matching_elements, "a")
+                return content_list
+
     # Core Functionality
     def main(self):
         """Main execution logic."""
@@ -325,7 +369,11 @@ class JobsScrapperCrunchbase:
                         do_clean=True,
                     )
 
-                    all_jobs_links = self.get_all_job_links(soup_obj)
+                    all_jobs_links = self.get_job_links_from_indexing_page(
+                        soup_obj,
+                    )
+
+                    print(all_jobs_links)
 
                     for link in all_jobs_links:
                         link = self.build_complete_link(
