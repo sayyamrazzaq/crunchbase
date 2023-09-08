@@ -330,6 +330,7 @@ class JobsScrapperCrunchbase:
         df = self.read_csv()
 
         for index, row in df.iterrows():
+            if index == 0: continue
             website_url = row["Website"]
             career_link = row.get("Career Link", None)
             if not career_link:

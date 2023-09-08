@@ -40,6 +40,7 @@ keywords_list = [
     "New Openings",
     "Get Hired",
     "Current Openings",
+    "Current Opportunities",
     "Apply Online",
     "Quick Apply",
     "Search for Roles",
