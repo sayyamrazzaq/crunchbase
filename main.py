@@ -19,7 +19,7 @@ from get_links import keywords_list  # External file for keywords
 
 # Constants
 INPUT_CSV_PATH = "apollo-accounts-export.csv"
-
+CAREERS = "careers/"
 
 class JobsScrapperCrunchbase:
     def __init__(self, input_csv_path, keywords_list):
@@ -261,8 +261,14 @@ class JobsScrapperCrunchbase:
     def build_complete_link(self, link, scheme="http", domain="example.com"):
         """Build a complete link from a partial link."""
         # Handle special cases like 'javascript:void(0)'
+        if CAREERS in link and CAREERS in domain:
+            link = link.replace(CAREERS, '')
+
         if "javascript:" in link:
             return None
+        elif link[0] == "/":
+            domain += link[1:]
+            return domain
 
         # Check if the scheme is present in the link
         if scheme not in link:
@@ -330,7 +336,8 @@ class JobsScrapperCrunchbase:
         df = self.read_csv()
 
         for index, row in df.iterrows():
-            if index == 0: continue
+            if index == 0:
+                continue
             website_url = row["Website"]
             career_link = row.get("Career Link", None)
             if not career_link:
@@ -363,7 +370,7 @@ class JobsScrapperCrunchbase:
                     jobs_link = self.build_complete_link(
                         jobs_link, scheme="http", domain=career_link
                     )
-
+                    print('after build', jobs_link)
                     self.open_url_in_driver(jobs_link)
 
                     soup_obj = self.selenium_driver_obj_to_soup_obj(
