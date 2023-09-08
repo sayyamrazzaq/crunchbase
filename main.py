@@ -1,7 +1,8 @@
+import os
 import re
 import time
 from urllib.parse import urljoin, urlparse
-import os
+
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
@@ -10,12 +11,14 @@ from selenium.webdriver import Firefox, FirefoxOptions
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+
+from get_links import keywords_list  # External file for keywords
+from job_description_n_job_title import heuristic_scrape
 from utils import (
-    find_all_pattern_matches,
     extract_content_from_tag,
+    find_all_pattern_matches,
     find_div_structure,
 )
-from get_links import keywords_list  # External file for keywords
 
 # Constants
 INPUT_CSV_PATH = "apollo-accounts-export.csv"
@@ -93,10 +96,13 @@ class JobsScrapperCrunchbase:
 
         button_text = tag_name_to_text_getter(button_tag_names)
         if button_text:
-            self.driver.find_element(
-                By.XPATH, f"//*[contains(text(), '{button_text}')]"
-            ).click()
-            time.sleep(3)
+            try:
+                self.driver.find_element(
+                    By.XPATH, f"//*[contains(text(), '{button_text}')]"
+                ).click()
+                time.sleep(3)
+            except Exception:
+                pass
 
     def selenium_driver_obj_to_soup_obj(self, do_clean=False):
         """Convert Selenium driver object to BeautifulSoup object."""
@@ -235,13 +241,6 @@ class JobsScrapperCrunchbase:
             )
         return list_of_jobs
 
-    def get_jd_and_title(self, soup):
-        content = []
-        for p in soup.find_all("p"):
-            content.append(p.text)
-
-        return "\n\n".join(content), self.driver.title
-
     def clean_html(self, soup_obj):
         """Clean the HTML content from unwanted tags."""
         # Parse the HTML content using BeautifulSoup
@@ -319,36 +318,16 @@ class JobsScrapperCrunchbase:
 
     def get_job_links_from_indexing_page(self, soup):
         most_repeated_structure = find_div_structure(soup)
+
         if most_repeated_structure:
-            # Parse the most repeated div structure and extract the tags
-            most_repeated_soup = BeautifulSoup(
-                most_repeated_structure,
-                "html.parser",
-            )
-            # Initialize an empty list to store the tags in the desired order
-            tag_list = []
+            tag_list = list(most_repeated_structure)
+            print("List of Tags in Most Repeated Structure:")
 
-            # Function to traverse the tree and
-            # extract tags in the desired order
-            def extract_tags(node):
-                if node.name:
-                    tag_list.append(node.name)
-                    for child in node.children:
-                        extract_tags(child)
-
-            # Start the traversal from the root of the parsed structure
-            for child in most_repeated_soup.children:
-                extract_tags(child)
-            # # Remove duplicate entries while preserving the order
-            # tag_list = list(dict.fromkeys(tag_list))​
-            # Now, tag_list contains the desired list of tags
-            target_pattern = tag_list
             # Find all elements that match the target pattern
-            matching_elements = find_all_pattern_matches(soup, target_pattern)
-
+            matching_elements = find_all_pattern_matches(soup, tag_list)
             if matching_elements:
-                # Extract and print the content from the
-                # 'a' tag within the matching elements
+                # Extract and print the content from the 'a'
+                # tag within the matching elements
                 content_list = extract_content_from_tag(matching_elements, "a")
                 return content_list
 
@@ -356,32 +335,26 @@ class JobsScrapperCrunchbase:
         """Write DataFrame to output CSV."""
 
         # Columns for the DataFrame
-        columns = [
-            "Website",
-            "Job URL",
-            "Job Title",
-            "Job Description",
-        ]
+        columns = ["Website", "Job URL", "Job Title", "Job Description"]
 
         # Check if the output CSV already exists
         if os.path.exists(output_csv_path):
             # If it does, read it into a DataFrame
             df = pd.read_csv(output_csv_path)
         else:
-            # If it doesn't, create an empty
-            # DataFrame with the specified columns
+            # If it doesn't, create an empty DataFrame with the specified columns
             df = pd.DataFrame(columns=columns)
 
-        # Check if the new_row already exists in the DataFrame
-        if not df[
-            (df["Career Link"] == new_row["Career Link"])
-            & (df["Job Title"] == new_row["Job Title"])
-        ].empty:
+        # Create a DataFrame from the new row
+        new_df = pd.DataFrame([new_row], columns=columns)
+
+        # Check if a similar row already exists in the DataFrame
+        if not df[df["Job Title"] == new_row["Job Title"]].empty:
             print("Row already exists. Skipping.")
             return
 
-        # Append the new_row to the DataFrame
-        df = df.append(new_row, ignore_index=True)
+        # Concatenate the existing and new DataFrames
+        df = pd.concat([df, new_df], ignore_index=True)
 
         # Save the updated DataFrame to CSV
         df.to_csv(output_csv_path, index=False)
@@ -435,33 +408,33 @@ class JobsScrapperCrunchbase:
                         do_clean=True,
                     )
 
-                    all_jobs_links = self.get_job_links_from_indexing_page(
-                        soup_obj,
-                    ) or []
+                    all_jobs_links = (
+                        self.get_job_links_from_indexing_page(
+                            soup_obj,
+                        )
+                        or []
+                    )
 
                     for link in all_jobs_links:
                         link = self.build_complete_link(
-                            link["href"], scheme="http", domain=jobs_link
+                            link, scheme="http", domain=jobs_link
                         )
-                        print(link)
+                        print("Job link are", link)
                         self.open_url_in_driver(link)
 
                         soup_obj = self.selenium_driver_obj_to_soup_obj(
                             do_clean=True,
                         )
 
-                        jd, title = self.get_jd_and_title(soup_obj)
-                        print(jd, title)
-
-                        self.write_jobs_in_csv(
-                            {
-                                "Website": website_url,
-                                "Job URL": link,
-                                "Job Title": title,
-                                "Job Description": jd,
-                            },
-                            self.output_csv_path,
-                        )
+                        jobs_data = heuristic_scrape(soup_obj)
+                        print(jobs_data)
+                        if jobs_data:
+                            jobs_data["Website"] = website_url
+                            jobs_data["Job URL"] = link
+                            self.write_jobs_in_csv(
+                                jobs_data,
+                                self.output_csv_path,
+                            )
 
 
 if __name__ == "__main__":
