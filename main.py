@@ -313,7 +313,7 @@ class JobsScrapperCrunchbase:
             return f"{domain}{link}"
 
         # Case 4: href is a relative path (e.g., vacancies)
-        return f"{base_domain}/{link}"
+        return f"{domain}/{link}"
 
     # Data Handling
     def read_csv(self):
