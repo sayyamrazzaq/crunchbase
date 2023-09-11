@@ -286,7 +286,7 @@ class JobsScrapperCrunchbase:
 
         # Parse the base URL
         base_parsed = urlparse(domain)
-        base_domain = f"{base_parsed.scheme}://{base_parsed.netloc}"
+        # base_domain = f"{base_parsed.scheme}://{base_parsed.netloc}"
 
         # Parse the provided href
         href_parsed = urlparse(link)
@@ -336,8 +336,6 @@ class JobsScrapperCrunchbase:
     def get_job_links_from_indexing_page(self, soup):
         most_repeated_structure = find_div_structure(soup)
         if most_repeated_structure:
-            print("Most Repeated <div> Structure:")
-            print(" -> ".join(most_repeated_structure))
             tag_list = list(most_repeated_structure)
             # Find all elements that match the target pattern
             matching_elements = find_all_pattern_matches(soup, tag_list)
