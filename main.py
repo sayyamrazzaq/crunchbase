@@ -1,7 +1,7 @@
 import os
 import re
 import time
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse, urlunparse
 
 import pandas as pd
 import requests
@@ -183,7 +183,7 @@ class JobsScrapperCrunchbase:
             "/job-search",
         ]
         for path in career_paths:
-            url = urljoin(domain, path)
+            url = self.build_complete_link(domain, path)
             try:
                 response = requests.get(
                     url,
@@ -202,7 +202,7 @@ class JobsScrapperCrunchbase:
             "/sitemap_index.xml",
         ]
         for sitemap_path in sitemap_paths:
-            sitemap_url = urljoin(domain, sitemap_path)
+            sitemap_url = self.build_complete_link(domain, sitemap_path)
             response = requests.get(sitemap_url, headers=headers, timeout=10)
             if response.status_code == 200:
                 soup = BeautifulSoup(response.content, "xml")
@@ -279,38 +279,41 @@ class JobsScrapperCrunchbase:
 
         return BeautifulSoup(cleaned_html, "html.parser")
 
-    def build_complete_link(self, link, scheme="http", domain="example.com"):
-        """Build a complete link from a partial link."""
-        # Handle special cases like 'javascript:void(0)'
-        if CAREERS in link and CAREERS in domain and scheme not in link:
-            link = link.replace(CAREERS, "")
-
-        if "javascript:" in link:
+    def build_complete_link(self, link, domain="example.com"):
+        # Handle javascript:void(0)
+        if link.lower() == "javascript:void(0)":
             return None
-        elif link[0] == "/" and domain[-1] == "/":
-            return domain + link[1:]
 
-        # Check if the scheme is present in the link
-        if scheme not in link:
-            # Avoid duplication at the boundary between domain and link
-            overlap_index = 0
-            min_overlap_len = min(len(domain), len(link))
-            for i in range(1, min_overlap_len + 1):
-                if domain[-i:] == link[:i]:
-                    overlap_index = i
+        # Parse the base URL
+        base_parsed = urlparse(domain)
+        base_domain = f"{base_parsed.scheme}://{base_parsed.netloc}"
 
-            # If there's no overlap but domain ends with a slash and link starts\
-            #  with the same segment after slash, adjust the overlap index
-            if (
-                overlap_index == 0
-                and domain[-1] == "/"
-                and domain.split("/")[-1] == link.split("/")[0]
-            ):
-                overlap_index = len(domain.split("/")[-1])
+        # Parse the provided href
+        href_parsed = urlparse(link)
 
-            return domain.rstrip("/") + link[overlap_index:]
+        # Case 1: href is an absolute URL
+        if href_parsed.scheme and href_parsed.netloc:
+            return link
 
-        return link
+        # Case 2: href starts with a slash, meaning it's an absolute path
+        if link.startswith("/"):
+            return urlunparse(
+                (
+                    base_parsed.scheme,
+                    base_parsed.netloc,
+                    href_parsed.path,
+                    "",
+                    href_parsed.query,
+                    "",
+                )
+            )
+
+        # Case 3: href is just a fragment (e.g., #latest-vacancies)
+        if link.startswith("#"):
+            return f"{domain}{link}"
+
+        # Case 4: href is a relative path (e.g., vacancies)
+        return f"{base_domain}/{link}"
 
     # Data Handling
     def read_csv(self):
@@ -332,18 +335,16 @@ class JobsScrapperCrunchbase:
 
     def get_job_links_from_indexing_page(self, soup):
         most_repeated_structure = find_div_structure(soup)
-
         if most_repeated_structure:
+            print("Most Repeated <div> Structure:")
+            print(" -> ".join(most_repeated_structure))
             tag_list = list(most_repeated_structure)
-            print("List of Tags in Most Repeated Structure:")
-
             # Find all elements that match the target pattern
             matching_elements = find_all_pattern_matches(soup, tag_list)
             if matching_elements:
-                # Extract and print the content from the 'a'
-                # tag within the matching elements
-                content_list = extract_content_from_tag(matching_elements, "a")
-                return content_list
+                # Extract and print the content from the
+                # 'a' tag within the matching elements
+                return extract_content_from_tag(matching_elements, "a")
 
     def write_jobs_in_csv(self, new_row, output_csv_path):
         """Write DataFrame to output CSV."""
@@ -356,7 +357,8 @@ class JobsScrapperCrunchbase:
             # If it does, read it into a DataFrame
             df = pd.read_csv(output_csv_path)
         else:
-            # If it doesn't, create an empty DataFrame with the specified columns
+            # If it doesn't, create an empty
+            # DataFrame with the specified columns
             df = pd.DataFrame(columns=columns)
 
         # Create a DataFrame from the new row
@@ -413,7 +415,7 @@ class JobsScrapperCrunchbase:
 
                 if jobs_link:
                     jobs_link = self.build_complete_link(
-                        jobs_link, scheme="http", domain=career_link
+                        jobs_link, domain=self.driver.current_url
                     )
 
                     self.open_url_in_driver(jobs_link)
@@ -431,7 +433,7 @@ class JobsScrapperCrunchbase:
 
                     for link in all_jobs_links:
                         link = self.build_complete_link(
-                            link, scheme="http", domain=jobs_link
+                            link, domain=self.driver.current_url
                         )
                         print("Job link are", link)
                         self.open_url_in_driver(link)
@@ -441,8 +443,8 @@ class JobsScrapperCrunchbase:
                         )
 
                         jobs_data = heuristic_scrape(soup_obj)
-                        print(jobs_data)
                         if jobs_data:
+                            print("Job Personal Link is", link)
                             jobs_data["Website"] = website_url
                             jobs_data["Job URL"] = link
                             self.write_jobs_in_csv(

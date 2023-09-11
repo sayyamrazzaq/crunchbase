@@ -12,6 +12,10 @@ def get_tag_pattern(element):
 
 
 def find_all_pattern_matches(soup, target_pattern):
+    if not soup:
+        print("Soup object is None.")
+        return []
+
     matching_elements = []
     for div in soup.find_all("div"):
         current_pattern = get_tag_pattern(div)
@@ -21,13 +25,22 @@ def find_all_pattern_matches(soup, target_pattern):
 
 
 def extract_content_from_tag(elements, tag_name):
+    # print("Extracting content from tags", tag_name, elements)
+    if not elements:
+        print("No elements to extract from.")
+        return []
     return [
         tag.get("href") for element in elements for tag in element.find_all(tag_name)
     ]
 
 
 def find_div_structure(soup):
+    if not soup:
+        print("Soup object is None.")
+        return None
+
     div_structure_count = Counter()
+
     for div in soup.find_all("div"):
         if div.find("a"):
             div_structure = get_tag_pattern(div)

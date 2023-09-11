@@ -14,6 +14,7 @@ keywords_list = [
     "View All Positions",
     "Open Roles",
     "Current Vacancies",
+    "View current vacancies",
     "Discover Careers",
     "Job Opportunities",
     "Start Your Journey",
@@ -105,4 +106,5 @@ keywords_list = [
     "View Latest Jobs",
     "Submit Enquiry",
     "Hiring Immediately",
+    "Find out more  >",
 ]
