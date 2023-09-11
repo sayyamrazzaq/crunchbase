@@ -280,6 +280,8 @@ class JobsScrapperCrunchbase:
         return BeautifulSoup(cleaned_html, "html.parser")
 
     def build_complete_link(self, link, domain="example.com"):
+        if not link:
+            return
         # Handle javascript:void(0)
         if link.lower() == "javascript:void(0)":
             return None
@@ -380,7 +382,7 @@ class JobsScrapperCrunchbase:
         df = self.read_csv()
 
         for index, row in df.iterrows():
-            if index == 0:
+            if index < 50:
                 continue
             website_url = row["Website"]
             career_link = row.get("Career Link", None)
@@ -418,9 +420,7 @@ class JobsScrapperCrunchbase:
 
                     self.open_url_in_driver(jobs_link)
 
-                    soup_obj = self.selenium_driver_obj_to_soup_obj(
-                        do_clean=True,
-                    )
+                    soup_obj = self.selenium_driver_obj_to_soup_obj()
 
                     all_jobs_links = (
                         self.get_job_links_from_indexing_page(
