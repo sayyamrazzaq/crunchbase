@@ -282,19 +282,33 @@ class JobsScrapperCrunchbase:
     def build_complete_link(self, link, scheme="http", domain="example.com"):
         """Build a complete link from a partial link."""
         # Handle special cases like 'javascript:void(0)'
-        if CAREERS in link and CAREERS in domain:
+        if CAREERS in link and CAREERS in domain and scheme not in link:
             link = link.replace(CAREERS, "")
 
         if "javascript:" in link:
             return None
-        elif link[0] == "/":
-            domain += link[1:]
-            return domain
+        elif link[0] == "/" and domain[-1] == "/":
+            return domain + link[1:]
 
         # Check if the scheme is present in the link
         if scheme not in link:
-            domain += link
-            return domain
+            # Avoid duplication at the boundary between domain and link
+            overlap_index = 0
+            min_overlap_len = min(len(domain), len(link))
+            for i in range(1, min_overlap_len + 1):
+                if domain[-i:] == link[:i]:
+                    overlap_index = i
+
+            # If there's no overlap but domain ends with a slash and link starts\
+            #  with the same segment after slash, adjust the overlap index
+            if (
+                overlap_index == 0
+                and domain[-1] == "/"
+                and domain.split("/")[-1] == link.split("/")[0]
+            ):
+                overlap_index = len(domain.split("/")[-1])
+
+            return domain.rstrip("/") + "/" + link[overlap_index:]
 
         return link
 
