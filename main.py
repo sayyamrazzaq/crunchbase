@@ -308,7 +308,7 @@ class JobsScrapperCrunchbase:
             ):
                 overlap_index = len(domain.split("/")[-1])
 
-            return domain.rstrip("/") + "/" + link[overlap_index:]
+            return domain.rstrip("/") + link[overlap_index:]
 
         return link
 
